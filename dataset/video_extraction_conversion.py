@@ -45,9 +45,41 @@ def select_frames(video_path, K):
     
     return frames_list
 
-def generate_landmarks(frames_list):
+# def select_preprocess_frames(frames_path):
+#     images_list = []
+#     landmark_list = []
+#     listdir = sorted(os.listdir(frames_path))
+#     n = len(listdir)
+#     for i, image_name in enumerate(listdir):
+#         if i < n//2: #get the video frames first
+#             img = cv2.imread(os.path.join(frames_path, image_name))
+#             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+#             images_list.append(img)
+#         else: #get the landmarks
+#             img = cv2.imread(os.path.join(frames_path, image_name))
+#             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+#             landmark_list.append(img)
+    
+#     return [image_frame_tuple for image_frame_tuple in zip(images_list, landmark_list)]
+    
+def select_preprocess_frames(img_path_list, seg_path_list):
+    # print('   reading')
+    # print('    img_path_list[0]:', img_path_list[0])
+    # if len(seg_path_list)>0:
+    #     print('    seg_path_list[0]:', seg_path_list[0])
+    img = [cv2.cvtColor(cv2.imread(fp), cv2.COLOR_BGR2RGB) for fp in img_path_list]
+    seg = [cv2.imread(fp, cv2.IMREAD_UNCHANGED).astype(bool) for fp in seg_path_list]
+    
+    # images_list =  [img[:, i*224:(i+1)*224, :] for i in range(8)]
+    # landmark_list = [img[:, i*224:(i+1)*224, :] for i in range(8,16)]
+    
+    # return [image_frame_tuple for image_frame_tuple in zip(images_list, landmark_list)]
+    return img, seg
+    
+
+def generate_landmarks(frames_list, face_aligner):
     frame_landmark_list = []
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device ='cuda:0')
+    fa = face_aligner
     
     for i in range(len(frames_list)):
         try:
@@ -102,9 +134,9 @@ def select_images_frames(path_to_images):
         images_list.append(img)
     return images_list
 
-def generate_cropped_landmarks(frames_list, pad=50):
+def generate_cropped_landmarks(frames_list, face_aligner, pad=50):
     frame_landmark_list = []
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device ='cuda:0')
+    fa = face_aligner
     
     for i in range(len(frames_list)):
         try:
