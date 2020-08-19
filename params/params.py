@@ -17,8 +17,11 @@ path_to_Wi = ""+"Wi_weights"
 #path_to_Wi = "test/"+"Wi_weights"
 
 #dataset save path
-path_to_images = '/media/vince/storage/dl/data/voxceleb/reorg'
-path_to_segs = '/media/vince/storage/dl/data/voxceleb/seg'
+path_to_images = '/media/hdd1/vince/data/lpd/img/train'
+path_to_segs = '/media/hdd1/vince/data/lpd/seg/train'
+
+# path_to_images = '/media/hdd1/vince/data/lpd/sample_img'
+# path_to_segs = '/media/hdd1/vince/data/lpd/sample_seg'
 
 #default for Voxceleb
 frame_shape = 256

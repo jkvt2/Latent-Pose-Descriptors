@@ -10,6 +10,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 plt.ion()
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import numpy as np
 from dataset.dataset_class import PreprocessDataset
@@ -117,7 +118,7 @@ pbar = tqdm(dataLoader, leave=True, initial=0)
 if not display_training:
     matplotlib.use('agg')
 
-
+#3200000: total iterations
 for epoch in range(epochCurrent, num_epochs):
     if epoch > epochCurrent:
         i_batch_current = 0
@@ -213,7 +214,8 @@ for epoch in range(epochCurrent, num_epochs):
                 optimizerD.step()
 
         for enum, idx in enumerate(idxs):
-            torch.save({'W_i': D.module.W_i[:,enum].unsqueeze(-1)}, path_to_Wi+'/W_'+str(idx.item())+'/W_'+str(idx.item())+'.tar')
+            wi_path = path_to_Wi+'/W_'+str(idx.item()//256)+'/W_'+str(idx.item())+'.tar'
+            torch.save({'W_i': D.module.W_i[:,enum].unsqueeze(-1)}, wi_path)
                     
 
         # Output training stats
@@ -281,7 +283,7 @@ for epoch in range(epochCurrent, num_epochs):
             for img_no in range(1,2):
                 out = torch.cat((out, (x_hat[img_no]*255).permute(1,2,0)), dim = 1)
             out = out.type(torch.uint8).to(cpu).numpy()
-            plt.imsave("recent.png", out)
+            plt.imsave("vis/{:03d}_{:05d}.png".format(epoch, i_batch), out)
             print('...Done saving latest')
             
     if epoch%1 == 0:
@@ -303,5 +305,5 @@ for epoch in range(epochCurrent, num_epochs):
         for img_no in range(1,2):
             out = torch.cat((out, (x_hat[img_no]*255).permute(1,2,0)), dim = 1)
         out = out.type(torch.uint8).to(cpu).numpy()
-        plt.imsave("recent_backup.png", out)
+        plt.imsave("vis/{:03d}_XXXXX.png".format(epoch,), out)
         print('...Done saving latest')

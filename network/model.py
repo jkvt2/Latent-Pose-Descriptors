@@ -132,10 +132,11 @@ class Discriminator(nn.Module):
             if not os.path.isdir(self.path_to_Wi):
                 os.mkdir(self.path_to_Wi)
             for i in tqdm(range(num_videos)):
-                if not os.path.isfile(self.path_to_Wi+'/W_'+str(i)+'/W_'+str(i)+'.tar'):
+                if not os.path.isfile(self.path_to_Wi+'/W_'+str(i//256)+'/W_'+str(i)+'.tar'):
                     w_i = torch.rand(512, 1)
-                    os.mkdir(self.path_to_Wi+'/W_'+str(i))
-                    torch.save({'W_i': w_i}, self.path_to_Wi+'/W_'+str(i)+'/W_'+str(i)+'.tar')
+                    if not os.path.isdir(self.path_to_Wi+'/W_'+str(i//256)):
+                        os.mkdir(self.path_to_Wi+'/W_'+str(i//256))
+                    torch.save({'W_i': w_i}, self.path_to_Wi+'/W_'+str(i//256)+'/W_'+str(i)+'.tar')
         self.W_i = nn.Parameter(torch.randn(512, 32))
         self.w_0 = nn.Parameter(torch.randn(512,1))
         self.b = nn.Parameter(torch.randn(1))
