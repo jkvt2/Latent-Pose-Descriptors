@@ -198,8 +198,10 @@ class LossGF(nn.Module):
         
         self.LossCnt = LossCnt(VGGFace_body_path, VGGFace_weight_path, device)
         self.lossAdv = LossAdv()
+        self.lossDice = LossDice()
         
-    def forward(self, x, x_hat, r_hat, D_res_list, D_hat_res_list):
+    def forward(self, x, x_hat, s, s_hat, r_hat, D_res_list, D_hat_res_list):
         loss_cnt = self.LossCnt(x, x_hat)
         loss_adv = self.lossAdv(r_hat, D_res_list, D_hat_res_list)
-        return loss_cnt + loss_adv
+        loss_dice = self.lossDice(s_hat, s)
+        return loss_cnt + loss_adv + loss_dice

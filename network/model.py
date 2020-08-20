@@ -23,7 +23,7 @@ class Generator(nn.Module):
     for i in range(1, len(slice_idx)):
         slice_idx[i] = slice_idx[i-1] + slice_idx[i]
     
-    def __init__(self, in_height, finetuning=False, e_finetuning=None):
+    def __init__(self, in_height, finetuning=False):
         super(Generator, self).__init__()
         
         self.sigmoid = nn.Sigmoid()
@@ -50,23 +50,23 @@ class Generator(nn.Module):
         
         self.finetuning = finetuning
         self.psi = nn.Parameter(torch.rand(self.P_LEN,1))
-        self.e_finetuning = e_finetuning
+        # self.e_finetuning = e_finetuning
         
-    def finetuning_init(self):
-        if self.finetuning:
-            self.psi = nn.Parameter(torch.mm(self.p, self.e_finetuning.mean(dim=0)))
+    # def finetuning_init(self):
+    #     if self.finetuning:
+    #         self.psi = nn.Parameter(torch.mm(self.p, self.e_finetuning.mean(dim=0)))
             
     def forward(self, e):
         if math.isnan(self.p[0,0]):
             sys.exit()
-        
-        if self.finetuning:
-            e_psi = self.psi.unsqueeze(0)
-            e_psi = e_psi.expand(e.shape[0],self.P_LEN,1)
-        else:
-            p = self.p.unsqueeze(0)
-            p = p.expand(e.shape[0],self.P_LEN,768) #B, p_len, 768
-            e_psi = torch.bmm(p, e) #B, p_len, 1
+        p = self.p.unsqueeze(0)
+        p = p.expand(e.shape[0],self.P_LEN,768) #B, p_len, 768
+        # if self.finetuning:
+        #     self.psi = nn.Parameter(torch.bmm(p, e))
+        #     e_psi = self.psi.unsqueeze(0)
+        #     e_psi = e_psi.expand(e.shape[0],self.P_LEN,1)
+        # else:
+        e_psi = torch.bmm(p, e) #B, p_len, 1
         
         const = self.const.unsqueeze(0).expand(e.shape[0], *self.const.shape)
         #Residual
@@ -110,7 +110,7 @@ class Generator(nn.Module):
 #         return self.W_i
 
 class Discriminator(nn.Module):
-    def __init__(self, num_videos, path_to_Wi, finetuning=False, e_finetuning=None):
+    def __init__(self, num_videos, path_to_Wi, finetuning=False):#, e_finetuning=None):
         super(Discriminator, self).__init__()
         self.path_to_Wi = path_to_Wi
         self.gpu_num = torch.cuda.device_count()
@@ -142,17 +142,20 @@ class Discriminator(nn.Module):
         self.b = nn.Parameter(torch.randn(1))
         
         self.finetuning = finetuning
-        self.e_finetuning = e_finetuning
+        # self.e_finetuning = e_finetuning
         self.w_prime = nn.Parameter( torch.randn(512,1) )
         
-    def finetuning_init(self):
-        if self.finetuning:
-            self.w_prime = nn.Parameter( self.w_0 + self.e_finetuning.mean(dim=0))
+    # def finetuning_init(self):
+    #     if self.finetuning:
+    #         self.w_prime = nn.Parameter( self.w_0 + self.e_finetuning.mean(dim=0))
     
     def load_W_i(self, W_i):
         self.W_i.data = self.relu(W_i)
     
-    def forward(self, x, i):
+    def forward(self, x, i, e_finetuning=None):
+        if self.finetuning:
+            self.w_prime = nn.Parameter( self.w_0 + e_finetuning.transpose(0,1)) #1,512
+            
         out1 = self.resDown1(x)
         
         out2 = self.resDown2(out1)
@@ -176,10 +179,10 @@ class Discriminator(nn.Module):
         
         batch_start_idx = torch.cuda.current_device() * self.W_i.shape[1]//self.gpu_num
         batch_end_idx = (torch.cuda.current_device() + 1) * self.W_i.shape[1]//self.gpu_num
-        
         if self.finetuning:
             out = torch.bmm(out.transpose(1,2), (self.w_prime.unsqueeze(0).expand(out.shape[0],512,1))) + self.b
         else:
+            #B,512,1
             out = torch.bmm(out.transpose(1,2), (self.W_i[:, batch_start_idx:batch_end_idx].unsqueeze(-1)).transpose(0,1) + self.w_0) + self.b #1x1
         
         return out, [out1 , out2, out3, out4, out5, out6, out7]

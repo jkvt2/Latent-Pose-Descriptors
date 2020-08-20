@@ -14,11 +14,11 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import numpy as np
 from dataset.dataset_class import PreprocessDataset
-from dataset.video_extraction_conversion import *
-from loss.loss_discriminator import *
-from loss.loss_generator import *
-from network.blocks import *
-from network.model import *
+# from dataset.video_extraction_conversion import *
+from loss.loss_discriminator import LossDSCfake, LossDSCreal
+from loss.loss_generator import LossG
+# from network.blocks import *
+from network.model import Generator, Discriminator
 from tqdm import tqdm
 
 from params.params import K, path_to_chkpt, path_to_backup, batch_size, path_to_images, path_to_segs, frame_shape, path_to_Wi
