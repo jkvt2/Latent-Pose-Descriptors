@@ -122,8 +122,8 @@ class Discriminator(nn.Module):
         self.resDown3 = ResBlockDown(128, 256) #out 256*32*32
         self.resDown4 = ResBlockDown(256, 512) #out 512*16*16
         self.resDown5 = ResBlockDown(512, 512) #out 512*8*8
-        self.resDown6 = ResBlockDown(512, 512) #out 512*4*4
-        self.res = ResBlockD(512) #out 512*4*4
+        self.resDown6 = ResBlockDown(512, 768) #out 512*4*4
+        self.res = ResBlockD(768) #out 512*4*4
         self.sum_pooling = nn.AdaptiveAvgPool2d((1,1)) #out 512*1*1
 
         
@@ -133,17 +133,17 @@ class Discriminator(nn.Module):
                 os.mkdir(self.path_to_Wi)
             for i in tqdm(range(num_videos)):
                 if not os.path.isfile(self.path_to_Wi+'/W_'+str(i//256)+'/W_'+str(i)+'.tar'):
-                    w_i = torch.rand(512, 1)
+                    w_i = torch.rand(768, 1)
                     if not os.path.isdir(self.path_to_Wi+'/W_'+str(i//256)):
                         os.mkdir(self.path_to_Wi+'/W_'+str(i//256))
                     torch.save({'W_i': w_i}, self.path_to_Wi+'/W_'+str(i//256)+'/W_'+str(i)+'.tar')
-        self.W_i = nn.Parameter(torch.randn(512, 32))
-        self.w_0 = nn.Parameter(torch.randn(512,1))
+        self.W_i = nn.Parameter(torch.randn(768, 32))
+        self.w_0 = nn.Parameter(torch.randn(768,1))
         self.b = nn.Parameter(torch.randn(1))
         
         self.finetuning = finetuning
         # self.e_finetuning = e_finetuning
-        self.w_prime = nn.Parameter( torch.randn(512,1) )
+        self.w_prime = nn.Parameter( torch.randn(768,1) )
         
     # def finetuning_init(self):
     #     if self.finetuning:
@@ -179,8 +179,11 @@ class Discriminator(nn.Module):
         
         batch_start_idx = torch.cuda.current_device() * self.W_i.shape[1]//self.gpu_num
         batch_end_idx = (torch.cuda.current_device() + 1) * self.W_i.shape[1]//self.gpu_num
+        
+        # print(out.shape)
+        # print(self.W_i.shape)
         if self.finetuning:
-            out = torch.bmm(out.transpose(1,2), (self.w_prime.unsqueeze(0).expand(out.shape[0],512,1))) + self.b
+            out = torch.bmm(out.transpose(1,2), (self.w_prime.unsqueeze(0).expand(out.shape[0],768,1))) + self.b
         else:
             #B,512,1
             out = torch.bmm(out.transpose(1,2), (self.W_i[:, batch_start_idx:batch_end_idx].unsqueeze(-1)).transpose(0,1) + self.w_0) + self.b #1x1

@@ -174,7 +174,7 @@ for epoch in range(epochCurrent, num_epochs):
                     r_hat=r_hat,
                     D_res_list=D_res_list,
                     D_hat_res_list=D_hat_res_list,
-                    e_vectors=ei_vectors,
+                    e_vectors=e_hat,
                     W=D.module.W_i,
                     i=idxs)
                 """####################################################################################################################################################
@@ -219,39 +219,39 @@ for epoch in range(epochCurrent, num_epochs):
                     
 
         # Output training stats
-        if i_batch % 1 == 0 and i_batch > 0:
-            #batch_end = datetime.now()
-            #avg_time = (batch_end - batch_start) / 100
-            # print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
+        # if i_batch % 1 == 0 and i_batch > 0:
+        #     #batch_end = datetime.now()
+        #     #avg_time = (batch_end - batch_start) / 100
+        #     # print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
             
-            #batch_start = datetime.now()
+        #     #batch_start = datetime.now()
             
-            # print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
-            #       % (epoch, num_epochs, i_batch, len(dataLoader),
-            #          lossD.item(), lossG.item(), r.mean(), r_hat.mean()))
-            pbar.set_postfix(epoch=epoch, r=r.mean().item(), rhat=r_hat.mean().item(), lossG=lossG.item())
+        #     # print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
+        #     #       % (epoch, num_epochs, i_batch, len(dataLoader),
+        #     #          lossD.item(), lossG.item(), r.mean(), r_hat.mean()))
+        #     pbar.set_postfix(epoch=epoch, r=r.mean().item(), rhat=r_hat.mean().item(), lossG=lossG.item())
 
-            if display_training:
-                plt.figure(figsize=(10,10))
-                plt.clf()
-                out = (x_hat[0]*255).permute(1,2,0)
-                for img_no in range(1,x_hat.shape[0]//16):
-                    out = torch.cat((out, (x_hat[img_no]*255).transpose(0,2)), dim = 1)
-                out = out.type(torch.int32).to(cpu).numpy()
-                fig = out
+        #     if display_training:
+        #         plt.figure(figsize=(10,10))
+        #         plt.clf()
+        #         out = (x_hat[0]*255).permute(1,2,0)
+        #         for img_no in range(1,x_hat.shape[0]//16):
+        #             out = torch.cat((out, (x_hat[img_no]*255).transpose(0,2)), dim = 1)
+        #         out = out.type(torch.int32).to(cpu).numpy()
+        #         fig = out
 
-                plt.clf()
-                out = (x[0]*255).permute(1,2,0)
-                for img_no in range(1,x.shape[0]//16):
-                    out = torch.cat((out, (x[img_no]*255).transpose(0,2)), dim = 1)
-                out = out.type(torch.int32).to(cpu).numpy()
-                fig = np.concatenate((fig, out), 0)
+        #         plt.clf()
+        #         out = (x[0]*255).permute(1,2,0)
+        #         for img_no in range(1,x.shape[0]//16):
+        #             out = torch.cat((out, (x[img_no]*255).transpose(0,2)), dim = 1)
+        #         out = out.type(torch.int32).to(cpu).numpy()
+        #         fig = np.concatenate((fig, out), 0)
 
-                plt.imshow(fig)
-                plt.xticks([])
-                plt.yticks([])
-                plt.draw()
-                plt.pause(0.001)
+        #         plt.imshow(fig)
+        #         plt.xticks([])
+        #         plt.yticks([])
+        #         plt.draw()
+        #         plt.pause(0.001)
             
             
 
@@ -279,9 +279,9 @@ for epoch in range(epochCurrent, num_epochs):
                     'optimizerG': optimizerG.state_dict(),
                     'optimizerD': optimizerD.state_dict()
                     }, path_to_chkpt)
-            out = (x_hat[0]*255).permute(1,2,0)
-            for img_no in range(1,2):
-                out = torch.cat((out, (x_hat[img_no]*255).permute(1,2,0)), dim = 1)
+            outx = torch.cat([i.permute(1,2,0) for i in x], dim=1) * 255
+            outxhat = torch.cat([i.permute(1,2,0) for i in x_hat], dim=1) * 255
+            out = torch.cat([outx, outxhat], dim=0)
             out = out.type(torch.uint8).to(cpu).numpy()
             plt.imsave("vis/{:03d}_{:05d}.png".format(epoch, i_batch), out)
             print('...Done saving latest')
@@ -301,9 +301,9 @@ for epoch in range(epochCurrent, num_epochs):
                 'optimizerG': optimizerG.state_dict(),
                 'optimizerD': optimizerD.state_dict()
                 }, path_to_backup)
-        out = (x_hat[0]*255).permute(1,2,0)
-        for img_no in range(1,2):
-            out = torch.cat((out, (x_hat[img_no]*255).permute(1,2,0)), dim = 1)
+        outx = torch.cat([i.permute(1,2,0) for i in x], dim=1) * 255
+        outxhat = torch.cat([i.permute(1,2,0) for i in x_hat], dim=1) * 255
+        out = torch.cat([outx, outxhat], dim=0)
         out = out.type(torch.uint8).to(cpu).numpy()
         plt.imsave("vis/{:03d}_XXXXX.png".format(epoch,), out)
         print('...Done saving latest')

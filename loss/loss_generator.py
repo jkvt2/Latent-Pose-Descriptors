@@ -139,15 +139,18 @@ class LossMatch(nn.Module):
         #         loss[b] += torch.abs(e_vectors[b,k].squeeze() - W[:,b]).mean()
         #     loss[b] = loss[b]/e_vectors.shape[1]
         # loss = loss.mean()
-        
-        W = W.unsqueeze(-1).expand(512, W.shape[1], e_vectors.shape[1]).transpose(0,1).transpose(1,2)
+        # print(W.shape)
+        W = W.transpose(0,1)
+        # print(W.shape)
         #B,8,512
-        W = W.reshape(-1,512)
+        # W = W.reshape(-1,768)
         #B*8,512
         e_vectors = e_vectors.squeeze(-1)
         #B,8,512
-        e_vectors = e_vectors.reshape(-1,512)
+        # e_vectors = e_vectors.reshape(-1,768)
         #B*8,512
+        # print(e_vectors.shape)
+        # print(W.shape)
         return self.l1_loss(e_vectors, W) * self.match_weight
 
 

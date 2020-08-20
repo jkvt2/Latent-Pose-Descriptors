@@ -182,7 +182,7 @@ class PreprocessDataset(Dataset):
                             map_location='cpu')['W_i'].requires_grad_(False)
             except:
                 print("\n\nerror loading: ", wi_path)
-                W_i = torch.rand((512,1))
+                W_i = torch.rand((768,1))
         else:
             W_i = None
         return identity_imgs, pose_img, pose_aug, pose_seg, idx, W_i
