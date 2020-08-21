@@ -10,14 +10,10 @@ import matplotlib
 from matplotlib import pyplot as plt
 plt.ion()
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-import numpy as np
 from dataset.dataset_class import PreprocessDataset
-# from dataset.video_extraction_conversion import *
 from loss.loss_discriminator import LossDSCfake, LossDSCreal
 from loss.loss_generator import LossG
-# from network.blocks import *
 from network.model import Generator, Discriminator
 from tqdm import tqdm
 
@@ -34,8 +30,14 @@ dataLoader = DataLoader(dataset, batch_size=batch_size, shuffle=True,
                         drop_last = True)
 
 G = nn.DataParallel(Generator(frame_shape).to(device))
-Ei = nn.DataParallel(models.resnext50_32x4d(num_classes=512).to(device))
-Ep = nn.DataParallel(models.mobilenet_v2(num_classes=256).to(device))
+if hasattr(models, 'resnext50_32x4d'):
+    Ei = nn.DataParallel(models.resnext50_32x4d(num_classes=512).to(device))
+    Ep = nn.DataParallel(models.mobilenet_v2(num_classes=256).to(device))
+else:
+    from network.resnet import resnext50_32x4d
+    from network.mobilenet import mobilenet_v2
+    Ei = nn.DataParallel(resnext50_32x4d(num_classes=512).to(device))
+    Ep = nn.DataParallel(mobilenet_v2(num_classes=256).to(device))
 D = nn.DataParallel(Discriminator(dataset.__len__(), path_to_Wi).to(device))
 
 G.train()
@@ -52,8 +54,12 @@ optimizerD = optim.Adam(params = D.parameters(),
                         amsgrad=False)
 
 """Criterion"""
-criterionG = LossG(VGGFace_body_path='Pytorch_VGGFACE_IR.py',
-                   VGGFace_weight_path='Pytorch_VGGFACE.pth', device=device)
+criterionG = nn.DataParallel(LossG(
+        VGG19_body_path='Pytorch_VGGFACE_IR.py',
+        VGG19_weight_path='Pytorch_VGGFACE.pth',
+        VGGFace_body_path='Pytorch_VGGFACE_IR.py',
+        VGGFace_weight_path='Pytorch_VGGFACE.pth',
+        device=device))
 criterionDreal = LossDSCreal()
 criterionDfake = LossDSCfake()
 
@@ -117,6 +123,7 @@ batch_start = datetime.now()
 pbar = tqdm(dataLoader, leave=True, initial=0)
 if not display_training:
     matplotlib.use('agg')
+os.makedirs('vis', exist_ok=True)
 
 #3200000: total iterations
 for epoch in range(epochCurrent, num_epochs):
@@ -129,7 +136,7 @@ for epoch in range(epochCurrent, num_epochs):
         identity_imgs = identity_imgs.to(device)
         pose_img = pose_img.to(device)
         pose_seg = pose_seg.to(device)
-        W_i = W_i.squeeze(-1).transpose(0,1).to(device).requires_grad_()
+        W_i = W_i.to(device).requires_grad_()
         
         D.module.load_W_i(W_i)
         
@@ -163,8 +170,6 @@ for epoch in range(epochCurrent, num_epochs):
                 r_hat, D_hat_res_list = D(x_hat, idxs)
                 with torch.no_grad():
                     r, D_res_list = D(x, idxs)
-                """####################################################################################################################################################
-                r, D_res_list = D(x, g_y, i)"""
 
                 lossG = criterionG(
                     x=x,
@@ -177,14 +182,8 @@ for epoch in range(epochCurrent, num_epochs):
                     e_vectors=e_hat,
                     W=D.module.W_i,
                     i=idxs)
-                """####################################################################################################################################################
-                lossD = criterionDfake(r_hat) + criterionDreal(r)
-                loss = lossG + lossD
-                loss.backward(retain_graph=False)
-                optimizerG.step()
-                optimizerD.step()"""
                 
-                lossG.backward(retain_graph=False)
+                lossG.mean().backward(retain_graph=False)
                 optimizerG.step()
                 #optimizerD.step()
             
@@ -217,53 +216,9 @@ for epoch in range(epochCurrent, num_epochs):
             wi_path = path_to_Wi+'/W_'+str(idx.item()//256)+'/W_'+str(idx.item())+'.tar'
             torch.save({'W_i': D.module.W_i[:,enum].unsqueeze(-1)}, wi_path)
                     
-
-        # Output training stats
-        # if i_batch % 1 == 0 and i_batch > 0:
-        #     #batch_end = datetime.now()
-        #     #avg_time = (batch_end - batch_start) / 100
-        #     # print('\n\navg batch time for batch size of', x.shape[0],':',avg_time)
-            
-        #     #batch_start = datetime.now()
-            
-        #     # print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(y)): %.4f'
-        #     #       % (epoch, num_epochs, i_batch, len(dataLoader),
-        #     #          lossD.item(), lossG.item(), r.mean(), r_hat.mean()))
-        #     pbar.set_postfix(epoch=epoch, r=r.mean().item(), rhat=r_hat.mean().item(), lossG=lossG.item())
-
-        #     if display_training:
-        #         plt.figure(figsize=(10,10))
-        #         plt.clf()
-        #         out = (x_hat[0]*255).permute(1,2,0)
-        #         for img_no in range(1,x_hat.shape[0]//16):
-        #             out = torch.cat((out, (x_hat[img_no]*255).transpose(0,2)), dim = 1)
-        #         out = out.type(torch.int32).to(cpu).numpy()
-        #         fig = out
-
-        #         plt.clf()
-        #         out = (x[0]*255).permute(1,2,0)
-        #         for img_no in range(1,x.shape[0]//16):
-        #             out = torch.cat((out, (x[img_no]*255).transpose(0,2)), dim = 1)
-        #         out = out.type(torch.int32).to(cpu).numpy()
-        #         fig = np.concatenate((fig, out), 0)
-
-        #         plt.imshow(fig)
-        #         plt.xticks([])
-        #         plt.yticks([])
-        #         plt.draw()
-        #         plt.pause(0.001)
-            
-            
-
         if i_batch % 1000 == 999:
-            lossesD.append(lossD.item())
-            lossesG.append(lossG.item())
-
-            if display_training:
-                plt.clf()
-                plt.plot(lossesG) #blue
-                plt.plot(lossesD) #orange
-                plt.show()
+            lossesD.append(lossD.mean().item())
+            lossesG.append(lossG.mean().item())
 
             print('Saving latest...')
             torch.save({

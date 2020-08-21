@@ -177,16 +177,13 @@ class Discriminator(nn.Module):
         
         out = out.squeeze(-1) #out B*512*1
         
-        batch_start_idx = torch.cuda.current_device() * self.W_i.shape[1]//self.gpu_num
-        batch_end_idx = (torch.cuda.current_device() + 1) * self.W_i.shape[1]//self.gpu_num
+        batch_start_idx = torch.cuda.current_device() * self.W_i.shape[0]//self.gpu_num
+        batch_end_idx = (torch.cuda.current_device() + 1) * self.W_i.shape[0]//self.gpu_num
         
-        # print(out.shape)
-        # print(self.W_i.shape)
         if self.finetuning:
-            out = torch.bmm(out.transpose(1,2), (self.w_prime.unsqueeze(0).expand(out.shape[0],768,1))) + self.b
+            out = torch.bmm(out.transpose(1,2), (self.w_prime.unsqueeze(0).expand(out.shape[0],512,1))) + self.b
         else:
-            #B,512,1
-            out = torch.bmm(out.transpose(1,2), (self.W_i[:, batch_start_idx:batch_end_idx].unsqueeze(-1)).transpose(0,1) + self.w_0) + self.b #1x1
+            out = torch.bmm(out.transpose(1,2), (self.W_i[batch_start_idx:batch_end_idx]) + self.w_0) + self.b #1x1
         
         return out, [out1 , out2, out3, out4, out5, out6, out7]
 
