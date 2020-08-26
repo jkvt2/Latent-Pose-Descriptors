@@ -137,8 +137,8 @@ class Discriminator(nn.Module):
                     if not os.path.isdir(self.path_to_Wi+'/W_'+str(i//256)):
                         os.mkdir(self.path_to_Wi+'/W_'+str(i//256))
                     torch.save({'W_i': w_i}, self.path_to_Wi+'/W_'+str(i//256)+'/W_'+str(i)+'.tar')
-        self.W_i = nn.Parameter(torch.randn(768, 32))
-        self.w_0 = nn.Parameter(torch.randn(768,1))
+        self.W_i = nn.Parameter(torch.randn(16,768,1))
+        self.w_0 = nn.Parameter(torch.randn(1,768))
         self.b = nn.Parameter(torch.randn(1))
         
         self.finetuning = finetuning

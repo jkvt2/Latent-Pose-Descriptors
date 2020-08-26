@@ -55,8 +55,7 @@ optimizerD = optim.Adam(params = D.parameters(),
 
 """Criterion"""
 criterionG = nn.DataParallel(LossG(
-        VGG19_body_path='Pytorch_VGGFACE_IR.py',
-        VGG19_weight_path='Pytorch_VGGFACE.pth',
+        VGG19_weight_path='vgg19-dcbb9e9d.pth',
         VGGFace_body_path='Pytorch_VGGFACE_IR.py',
         VGGFace_weight_path='Pytorch_VGGFACE.pth',
         device=device))
@@ -214,7 +213,7 @@ for epoch in range(epochCurrent, num_epochs):
 
         for enum, idx in enumerate(idxs):
             wi_path = path_to_Wi+'/W_'+str(idx.item()//256)+'/W_'+str(idx.item())+'.tar'
-            torch.save({'W_i': D.module.W_i[:,enum].unsqueeze(-1)}, wi_path)
+            torch.save({'W_i': D.module.W_i[enum].detach().cpu()}, wi_path)
                     
         if i_batch % 1000 == 999:
             lossesD.append(lossD.mean().item())

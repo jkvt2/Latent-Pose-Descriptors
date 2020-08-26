@@ -2,8 +2,8 @@ import torch
 from torch.utils.data import Dataset
 import os
 import numpy as np
-import face_alignment
-import bisect
+# import face_alignment
+# import bisect
 import albumentations as A
 import albumentations.augmentations.functional as F
 import cv2
