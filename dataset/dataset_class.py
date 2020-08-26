@@ -174,7 +174,35 @@ class FineTuningImagesDataset(Dataset):
         pose_img = torch.from_numpy(np.array(pose_img[0])).type(dtype = torch.float) #256,256,3
         pose_img = pose_img.permute(2,0,1)/255 #3,256,256
         
-        pose_seg = torch.from_numpy(np.array(pose_seg)).type(dtype = torch.int) #1,256,256
+        pose_seg = torch.from_numpy(np.array(pose_seg)).type(dtype = torch.float) #1,256,256
         
         return pose_aug, pose_img, pose_seg
+        
+class DemoImagesDataset(Dataset):
+    def __init__(self, path_to_images, path_to_segs, device):
+        self.path_to_images = path_to_images
+        self.path_to_segs = path_to_segs
+        self.device = device
+    
+    def __len__(self):
+        return len(os.listdir(self.path_to_images))
+    
+    def __getitem__(self, idx):
+
+        img_path_list = [os.path.join(
+            self.path_to_images,
+            '{:07d}.png'.format(idx))]
+        seg_path_list = [os.path.join(
+            self.path_to_segs,
+            '{:07d}.png'.format(idx))]
+        pose_img, pose_seg = select_preprocess_frames(
+            img_path_list=img_path_list,
+            seg_path_list=seg_path_list,)
+        
+        pose_img = torch.from_numpy(np.array(pose_img[0])).type(dtype = torch.float) #256,256,3
+        pose_img = pose_img.permute(2,0,1)/255 #3,256,256
+        
+        pose_seg = torch.from_numpy(np.array(pose_seg)).type(dtype = torch.float) #1,256,256
+        
+        return pose_img, pose_seg
         

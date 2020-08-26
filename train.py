@@ -38,7 +38,7 @@ else:
     from network.mobilenet import mobilenet_v2
     Ei = nn.DataParallel(resnext50_32x4d(num_classes=512).to(device))
     Ep = nn.DataParallel(mobilenet_v2(num_classes=256).to(device))
-D = nn.DataParallel(Discriminator(dataset.__len__(), path_to_Wi).to(device))
+D = nn.DataParallel(Discriminator(batch_size, dataset.__len__(), path_to_Wi).to(device))
 
 G.train()
 Ei.train()
@@ -103,6 +103,7 @@ checkpoint = torch.load(path_to_chkpt, map_location=cpu)
 Ei.module.load_state_dict(checkpoint['Ei_state_dict'])
 Ep.module.load_state_dict(checkpoint['Ep_state_dict'])
 G.module.load_state_dict(checkpoint['G_state_dict'], strict=False)
+checkpoint['D_state_dict']['W_i'] = nn.Parameter(torch.randn(batch_size,768,1))
 D.module.load_state_dict(checkpoint['D_state_dict'])
 epochCurrent = checkpoint['epoch']
 lossesG = checkpoint['lossesG']
@@ -110,7 +111,7 @@ lossesD = checkpoint['lossesD']
 num_vid = checkpoint['num_vid']
 i_batch_current = checkpoint['i_batch'] +1
 optimizerG.load_state_dict(checkpoint['optimizerG'])
-optimizerD.load_state_dict(checkpoint['optimizerD'])
+# optimizerD.load_state_dict(checkpoint['optimizerD'])
 
 G.train()
 Ei.train()

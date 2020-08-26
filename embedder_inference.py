@@ -1,12 +1,12 @@
 """Main"""
 import torch
-import torch.nn as nn
+# import torch.nn as nn
 import os
 
 from dataset.video_extraction_conversion import select_preprocess_frames
 # from network.blocks import *
 import torchvision.models as models
-import face_alignment
+# import face_alignment
 
 import numpy as np
 
@@ -21,8 +21,8 @@ path_to_e_hat_images = 'e_hat_images.tar'
 # path_to_video = 'test_vid.mp4'
 path_to_i_images = '/media/vince/storage/dl/data/identity_source/img'
 
-T = 32
-face_aligner = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device ='cuda:0')
+# T = 32
+# face_aligner = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device ='cuda:0')
 
 
 """Loading Embedder input"""

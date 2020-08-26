@@ -110,7 +110,7 @@ class Generator(nn.Module):
 #         return self.W_i
 
 class Discriminator(nn.Module):
-    def __init__(self, num_videos, path_to_Wi, finetuning=False):#, e_finetuning=None):
+    def __init__(self, batch_size, num_videos, path_to_Wi, finetuning=False):#, e_finetuning=None):
         super(Discriminator, self).__init__()
         self.path_to_Wi = path_to_Wi
         self.gpu_num = torch.cuda.device_count()
@@ -137,13 +137,13 @@ class Discriminator(nn.Module):
                     if not os.path.isdir(self.path_to_Wi+'/W_'+str(i//256)):
                         os.mkdir(self.path_to_Wi+'/W_'+str(i//256))
                     torch.save({'W_i': w_i}, self.path_to_Wi+'/W_'+str(i//256)+'/W_'+str(i)+'.tar')
-        self.W_i = nn.Parameter(torch.randn(16,768,1))
+        self.W_i = nn.Parameter(torch.randn(batch_size,768,1))
         self.w_0 = nn.Parameter(torch.randn(1,768))
         self.b = nn.Parameter(torch.randn(1))
         
         self.finetuning = finetuning
         # self.e_finetuning = e_finetuning
-        self.w_prime = nn.Parameter( torch.randn(768,1) )
+        self.w_prime = nn.Parameter(torch.randn(batch_size, 768,1))
         
     # def finetuning_init(self):
     #     if self.finetuning:
@@ -154,7 +154,7 @@ class Discriminator(nn.Module):
     
     def forward(self, x, i, e_finetuning=None):
         if self.finetuning:
-            self.w_prime = nn.Parameter( self.w_0 + e_finetuning.transpose(0,1)) #1,512
+            self.w_prime = nn.Parameter(self.w_0.unsqueeze(-1) + e_finetuning) #1,768,1
             
         out1 = self.resDown1(x)
         
@@ -181,7 +181,7 @@ class Discriminator(nn.Module):
         batch_end_idx = (torch.cuda.current_device() + 1) * self.W_i.shape[0]//self.gpu_num
         
         if self.finetuning:
-            out = torch.bmm(out.transpose(1,2), (self.w_prime.unsqueeze(0).expand(out.shape[0],512,1))) + self.b
+            out = torch.bmm(out.transpose(1,2), self.w_prime.expand(out.shape[0],768,1)) + self.b
         else:
             out = torch.bmm(out.transpose(1,2), (self.W_i[batch_start_idx:batch_end_idx]) + self.w_0) + self.b #1x1
         
