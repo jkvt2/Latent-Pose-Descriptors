@@ -98,6 +98,7 @@ Ep.to(device)
 """Training"""
 batch_start = datetime.now()
 
+os.makedirs('vis', exist_ok=True)
 cont = True
 while cont:
     for epoch in range(num_epochs):
