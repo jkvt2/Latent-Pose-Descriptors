@@ -46,27 +46,12 @@ class Generator(nn.Module):
         self.resUp6 = ResBlockUp(128, 64) #out 64*256*256
         self.conv2d = nn.Conv2d(64, 4, 1)
         
-        self.p = nn.Parameter(torch.rand(self.P_LEN,768).normal_(0.0,0.02))
-        
-        self.finetuning = finetuning
-        self.psi = nn.Parameter(torch.rand(self.P_LEN,1))
-        # self.e_finetuning = e_finetuning
-        
-    # def finetuning_init(self):
-    #     if self.finetuning:
-    #         self.psi = nn.Parameter(torch.mm(self.p, self.e_finetuning.mean(dim=0)))
+        self.mlp1 = nn.utils.spectral_norm(nn.Linear(768, 768))
+        self.mlp2 = nn.utils.spectral_norm(nn.Linear(768, self.P_LEN))
             
     def forward(self, e):
-        if math.isnan(self.p[0,0]):
-            sys.exit()
-        p = self.p.unsqueeze(0)
-        p = p.expand(e.shape[0],self.P_LEN,768) #B, p_len, 768
-        # if self.finetuning:
-        #     self.psi = nn.Parameter(torch.bmm(p, e))
-        #     e_psi = self.psi.unsqueeze(0)
-        #     e_psi = e_psi.expand(e.shape[0],self.P_LEN,1)
-        # else:
-        e_psi = torch.bmm(p, e) #B, p_len, 1
+        e = self.relu(self.mlp1(e.squeeze(-1)))
+        e_psi = self.mlp2(e).unsqueeze(-1) #B, p_len, 1
         
         const = self.const.unsqueeze(0).expand(e.shape[0], *self.const.shape)
         #Residual
