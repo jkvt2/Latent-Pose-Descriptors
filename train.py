@@ -46,12 +46,10 @@ Ep.train()
 D.train()
 
 
-optimizerG = optim.Adam(params = list(Ei.parameters()) + list(Ep.parameters()) + list(G.parameters()),
-                        lr=5e-5,
-                        amsgrad=False)
-optimizerD = optim.Adam(params = D.parameters(),
-                        lr=2e-4,
-                        amsgrad=False)
+optimizer = optim.Adam(
+        params=list(Ei.parameters()) + list(Ep.parameters()) + list(G.parameters()) + list(D.parameters()),
+        lr=2e-4,
+        amsgrad=False)
 
 """Criterion"""
 criterionG = nn.DataParallel(LossG(
@@ -92,8 +90,7 @@ if not os.path.isfile(path_to_chkpt):
             'D_state_dict': D.module.state_dict(),
             'num_vid': dataset.__len__(),
             'i_batch': i_batch,
-            'optimizerG': optimizerG.state_dict(),
-            'optimizerD': optimizerD.state_dict()
+            'optimizer': optimizer.state_dict(),
             }, path_to_chkpt)
     print('...Done')
 
@@ -110,8 +107,7 @@ lossesG = checkpoint['lossesG']
 lossesD = checkpoint['lossesD']
 num_vid = checkpoint['num_vid']
 i_batch_current = checkpoint['i_batch'] +1
-optimizerG.load_state_dict(checkpoint['optimizerG'])
-# optimizerD.load_state_dict(checkpoint['optimizerD'])
+optimizer.load_state_dict(checkpoint['optimizer'])
 
 G.train()
 Ei.train()
@@ -125,7 +121,6 @@ if not display_training:
     matplotlib.use('agg')
 os.makedirs('vis', exist_ok=True)
 
-#3200000: total iterations
 for epoch in range(epochCurrent, num_epochs):
     if epoch > epochCurrent:
         i_batch_current = 0
@@ -140,77 +135,54 @@ for epoch in range(epochCurrent, num_epochs):
         
         D.module.load_W_i(W_i)
         
-        if i_batch % 1 == 0:
-            with torch.autograd.enable_grad():
-                #zero the parameter gradients
-                optimizerG.zero_grad()
-                optimizerD.zero_grad()
+        with torch.autograd.enable_grad():
+            #zero the parameter gradients
+            optimizer.zero_grad()
 
-                #forward
-                # Calculate average encoding vector for video
-                identity_imgs_rs = identity_imgs.view(-1,
-                    identity_imgs.shape[-3],
-                    identity_imgs.shape[-2],
-                    identity_imgs.shape[-1]) #BxK,3,256,256
+            #forward
+            # Calculate average encoding vector for video
+            identity_imgs_rs = identity_imgs.view(-1,
+                identity_imgs.shape[-3],
+                identity_imgs.shape[-2],
+                identity_imgs.shape[-1]) #BxK,3,256,256
 
-                ei_vectors = Ei(identity_imgs_rs) #BxK,512
-                ei_vectors = ei_vectors.view(-1, identity_imgs.shape[1], 512) #B,K,512
-                ei_hat = ei_vectors.mean(dim=1)
-                
-                ep_hat = Ep(pose_aug) #B,256
-                
-                e_hat = torch.cat([ei_hat, ep_hat], dim=1).unsqueeze(-1) #B,768
-
-                #train G and D
-                is_hat = G(e_hat)
-                i_hat = is_hat[:,:3]
-                s_hat = is_hat[:,3,None]
-                x = torch.mul(pose_img, pose_seg)
-                x_hat = torch.mul(i_hat, s_hat)
-                r_hat, D_hat_res_list = D(x_hat, idxs)
-                with torch.no_grad():
-                    r, D_res_list = D(x, idxs)
-
-                lossG = criterionG(
-                    x=x,
-                    x_hat=x_hat,
-                    s=pose_seg,
-                    s_hat=s_hat,
-                    r_hat=r_hat,
-                    D_res_list=D_res_list,
-                    D_hat_res_list=D_hat_res_list,
-                    e_vectors=e_hat,
-                    W=D.module.W_i,
-                    i=idxs)
-                
-                lossG.mean().backward(retain_graph=False)
-                optimizerG.step()
-                #optimizerD.step()
+            ei_vectors = Ei(identity_imgs_rs) #BxK,512
+            ei_vectors = ei_vectors.view(-1, identity_imgs.shape[1], 512) #B,K,512
+            ei_hat = ei_vectors.mean(dim=1)
             
-            with torch.autograd.enable_grad():
-                optimizerG.zero_grad()
-                optimizerD.zero_grad()
-                x_hat.detach_().requires_grad_()
-                r_hat, D_hat_res_list = D(x_hat, idxs)
-                lossDfake = criterionDfake(r_hat)
+            ep_hat = Ep(pose_aug) #B,256
+            
+            e_hat = torch.cat([ei_hat, ep_hat], dim=1).unsqueeze(-1) #B,768
 
-                r, D_res_list = D(x, idxs)
-                lossDreal = criterionDreal(r)
-                
-                lossD = lossDfake + lossDreal
-                lossD.backward(retain_graph=False)
-                optimizerD.step()
-                
-                optimizerD.zero_grad()
-                r_hat, D_hat_res_list = D(x_hat, idxs)
-                lossDfake = criterionDfake(r_hat)
+            #train G and D
+            is_hat = G(e_hat)
+            i_hat = is_hat[:,:3]
+            s_hat = is_hat[:,3,None]
+            x = torch.mul(pose_img, pose_seg)
+            x_hat = torch.mul(i_hat, s_hat)
+            r_hat, D_hat_res_list = D(x_hat, idxs)
+            r, D_res_list = D(x, idxs)
 
-                r, D_res_list = D(x, idxs)
-                lossDreal = criterionDreal(r)
-                
-                lossD = lossDfake + lossDreal
-                lossD.backward(retain_graph=False)
-                optimizerD.step()
+            lossG = criterionG(
+                x=x,
+                x_hat=x_hat,
+                s=pose_seg,
+                s_hat=s_hat,
+                r_hat=r_hat,
+                D_res_list=D_res_list,
+                D_hat_res_list=D_hat_res_list,
+                e_vectors=e_hat,
+                W=D.module.W_i,
+                i=idxs)
+            
+            lossDfake = criterionDfake(r_hat)
+            lossDreal = criterionDreal(r)
+            
+            lossD = lossDfake + lossDreal
+            loss = lossG.mean() + lossD
+            
+            loss.backward(retain_graph=False)
+            optimizer.step()
 
         for enum, idx in enumerate(idxs):
             wi_path = path_to_Wi+'/W_'+str(idx.item()//256)+'/W_'+str(idx.item())+'.tar'
@@ -231,8 +203,7 @@ for epoch in range(epochCurrent, num_epochs):
                     'D_state_dict': D.module.state_dict(),
                     'num_vid': dataset.__len__(),
                     'i_batch': i_batch,
-                    'optimizerG': optimizerG.state_dict(),
-                    'optimizerD': optimizerD.state_dict()
+                    'optimizer': optimizer.state_dict(),
                     }, path_to_chkpt)
             outx = torch.cat([i.permute(1,2,0) for i in x], dim=1) * 255
             outxhat = torch.cat([i.permute(1,2,0) for i in x_hat], dim=1) * 255
@@ -241,24 +212,22 @@ for epoch in range(epochCurrent, num_epochs):
             plt.imsave("vis/{:03d}_{:05d}.png".format(epoch, i_batch), out)
             print('...Done saving latest')
             
-    if epoch%1 == 0:
-        print('Saving latest...')
-        torch.save({
-                'epoch': epoch+1,
-                'lossesG': lossesG,
-                'lossesD': lossesD,
-                'Ei_state_dict': Ei.module.state_dict(),
-                'Ep_state_dict': Ep.module.state_dict(),
-                'G_state_dict': G.module.state_dict(),
-                'D_state_dict': D.module.state_dict(),
-                'num_vid': dataset.__len__(),
-                'i_batch': i_batch,
-                'optimizerG': optimizerG.state_dict(),
-                'optimizerD': optimizerD.state_dict()
-                }, path_to_backup)
-        outx = torch.cat([i.permute(1,2,0) for i in x], dim=1) * 255
-        outxhat = torch.cat([i.permute(1,2,0) for i in x_hat], dim=1) * 255
-        out = torch.cat([outx, outxhat], dim=0)
-        out = out.type(torch.uint8).to(cpu).numpy()
-        plt.imsave("vis/{:03d}_XXXXX.png".format(epoch,), out)
-        print('...Done saving latest')
+    print('Saving latest...')
+    torch.save({
+            'epoch': epoch+1,
+            'lossesG': lossesG,
+            'lossesD': lossesD,
+            'Ei_state_dict': Ei.module.state_dict(),
+            'Ep_state_dict': Ep.module.state_dict(),
+            'G_state_dict': G.module.state_dict(),
+            'D_state_dict': D.module.state_dict(),
+            'num_vid': dataset.__len__(),
+            'i_batch': i_batch,
+            'optimizer': optimizer.state_dict(),
+            }, path_to_backup)
+    outx = torch.cat([i.permute(1,2,0) for i in x], dim=1) * 255
+    outxhat = torch.cat([i.permute(1,2,0) for i in x_hat], dim=1) * 255
+    out = torch.cat([outx, outxhat], dim=0)
+    out = out.type(torch.uint8).to(cpu).numpy()
+    plt.imsave("vis/{:03d}_XXXXX.png".format(epoch,), out)
+    print('...Done saving latest')
