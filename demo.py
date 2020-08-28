@@ -8,16 +8,21 @@ import os
 from dataset.dataset_class import DemoImagesDataset
 from network.model import Generator
 
-from params.params import frame_shape
+from params.params import (
+    frame_shape, path_to_pose_img, path_to_pose_video,
+    path_to_identity_embedding, path_to_finetuned_model)
 
 """Hyperparameters and config"""
 batch_size = 1
 device = torch.device("cuda:0")
 cpu = torch.device("cpu")
-path_to_images = '/media/vince/storage/dl/data/pose_source/img'
+path_to_images = path_to_pose_img
+if not os.path.exists(path_to_images):
+    from dataset.preprocess import save_to_file
+    save_to_file(path_to_pose_video, path_to_pose_img)
 
-path_to_embedding = 'e_hat_images.tar'
-path_to_save = 'finetuned_model.tar'
+path_to_embedding = path_to_identity_embedding
+path_to_save = path_to_finetuned_model
 
 checkpoint = torch.load(path_to_save, map_location=cpu)
 ei_hat = torch.load(path_to_embedding, map_location=cpu)

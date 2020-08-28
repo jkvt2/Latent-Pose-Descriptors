@@ -1,129 +1,158 @@
-import torch
-import os
-from datetime import datetime
 import numpy as np
-import cv2
-# from torchvision.utils import save_image
-from tqdm import tqdm
+import imageio
+import os
+from .util import bb_intersection_over_union, join, crop_bbox_from_frames
+from skimage.transform import resize
 import face_alignment
-from matplotlib import pyplot as plt
-from .params.params import path_to_mp4, path_to_preprocess
 
-K = 8
-num_vid = 0
-device = torch.device('cuda:0')
-face_aligner = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device ='cuda:0')
+fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False)
 
-if not os.path.isdir(path_to_preprocess):
-    os.mkdir(path_to_preprocess)
+REF_FRAME_SIZE = 360
+REF_FPS = 25
 
-def generate_landmarks(frames_list, face_aligner):
-    frame_landmark_list = []
-    fa = face_aligner
+def extract_bbox(frame, refbbox=None):
+    bboxes = fa.face_detector.detect_from_image(frame[..., ::-1])
+    if refbbox is None:
+        return bboxes
+    else:
+        if len(bboxes) != 0:
+            bbox = max([(bb_intersection_over_union(bbox, refbbox), tuple(bbox)) for bbox in bboxes])[1]
+        else:
+            bbox = np.array([0, 0, 0, 0, 0])
+        return np.maximum(np.array(bbox), 0)
+
+def crop_video(video_path,
+               mode='longest',
+               iou_with_initial=0.5,
+               aspect_preserving=False,
+               image_shape=(256,256),
+               min_size=256, 
+               min_frames=64,
+               max_frames=1024,
+               increase=0.1):
+    """Makes the required cropped frames from a given video
+
+    Args:
+        video_path (str): where the video is
+        mode (str): how to choose the subsequence to crop frames from. Should be one of:
+            longest: take the longest subsequence that conforms to requirements
+            start: take the subsequence starting from the first frame
+            parts: split the video into multiple individually conforming subsequences
+            Default: 'longest'.
+        iou_with_initial (float): minimum iou with initial frame to continue
+            Default: 0.5
+        aspect_preserving (bool): whether the aspect should be preserved
+            Default: False
+        image_shape ((int, int)): shape of crop
+            Default: (256, 256)
+        min_size (int): minimum size of face required to keep sequence
+            Default: 256
+        min_frames (int): minimum number of frames for a subsequence to be kept
+            Default: 64
+        max_frames (int): maximum number of frames for a subsequence to be kept
+            Default: 1024
+        increase (float): amount of border gap to include around the face
+            Default: 0.1
+
+    Targets:
+        image, mask, bboxes, keypoints
+
+    Image types:
+        uint8, float32
+    """
+    assert any([mode == i for i in ['longest', 'start', 'parts']])
+    reader = imageio.get_reader(video_path)
     
-    for i in range(len(frames_list)):
-        try:
-            input = frames_list[i]
-            preds = fa.get_landmarks(input)[0]
-
-            dpi = 100
-            fig = plt.figure(figsize=(input.shape[1]/dpi, input.shape[0]/dpi), dpi = dpi)
-            ax = fig.add_subplot(1,1,1)
-            ax.imshow(np.ones(input.shape))
-            plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-
-            #chin
-            ax.plot(preds[0:17,0],preds[0:17,1],marker='',markersize=5,linestyle='-',color='green',lw=2)
-            #left and right eyebrow
-            ax.plot(preds[17:22,0],preds[17:22,1],marker='',markersize=5,linestyle='-',color='orange',lw=2)
-            ax.plot(preds[22:27,0],preds[22:27,1],marker='',markersize=5,linestyle='-',color='orange',lw=2)
-            #nose
-            ax.plot(preds[27:31,0],preds[27:31,1],marker='',markersize=5,linestyle='-',color='blue',lw=2)
-            ax.plot(preds[31:36,0],preds[31:36,1],marker='',markersize=5,linestyle='-',color='blue',lw=2)
-            #left and right eye
-            ax.plot(preds[36:42,0],preds[36:42,1],marker='',markersize=5,linestyle='-',color='red',lw=2)
-            ax.plot(preds[42:48,0],preds[42:48,1],marker='',markersize=5,linestyle='-',color='red',lw=2)
-            #outer and inner lip
-            ax.plot(preds[48:60,0],preds[48:60,1],marker='',markersize=5,linestyle='-',color='purple',lw=2)
-            ax.plot(preds[60:68,0],preds[60:68,1],marker='',markersize=5,linestyle='-',color='pink',lw=2) 
-            ax.axis('off')
-
-            fig.canvas.draw()
-
-            data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
-            frame_landmark_list.append((input, data))
-            plt.close(fig)
-        except:
-            print('Error: Video corrupted or no landmarks visible')
-    
-    for i in range(len(frames_list) - len(frame_landmark_list)):
-        #filling frame_landmark_list in case of error
-        frame_landmark_list.append(frame_landmark_list[i])
-    
-    
-    return frame_landmark_list
-
-def pick_images(video_path, pic_folder, num_images):
-    cap = cv2.VideoCapture(video_path)
-    
-    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    
-    idxes = [1 if i%(n_frames//num_images+1)==0 else 0 for i in range(n_frames)]
-    
-    frames_list = []
-    
-    # Read until video is completed or no frames needed
-    ret = True
-    frame_idx = 0
-    frame_counter = 0
-    while(ret and frame_idx < n_frames):
-        ret, frame = cap.read()
+    if mode == 'longest':
+        initial_bboxs = []
+        dones = []
+        n_frames = []
+        for i, frame in enumerate(reader):
+            mult = frame.shape[0] / REF_FRAME_SIZE
+            rs_frame = resize(frame, (REF_FRAME_SIZE, int(frame.shape[1] / mult)), preserve_range=True)
+         
+            bboxes = extract_bbox(rs_frame)
+            if len(bboxes) == 0:
+                bbox = np.array([0, 0, 0, 0, 0])
+            else:
+                bbox = mult * bboxes[0][:4]
+            
+            for j, (i_bbox, done) in enumerate(zip(initial_bboxs, dones)):
+                if done: continue
+                isec = bb_intersection_over_union(i_bbox, bbox)
+                if isec < iou_with_initial or i - j >= max_frames:
+                    n_frames[j] = i - j
+                    dones[j] = True
+            initial_bboxs.append(bbox)
+            dones.append(False)
+            n_frames.append(-1)
+            
+        for j, v in enumerate(n_frames):
+            if v == -1:
+                n_frames[j] = i - j + 1
+        start = np.argmax(n_frames)
+        dur = n_frames[start]
         
-        if ret and idxes[frame_idx] == 1:
-            RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames_list.append(RGB)
+        frame_list = []
+        tube_bbox = bbox
+        for i, (frame, bbox) in enumerate(zip(reader, initial_bboxs[start:])):
+            if i < start:continue
+            if i >= start + dur:break
+            tube_bbox = join(tube_bbox, bbox)
+            frame_list.append(frame)
+        out, final_bbox = crop_bbox_from_frames(frame_list, tube_bbox,
+                                        min_frames=min_frames,
+                                        image_shape=image_shape,
+                                        min_size=min_size, 
+                                        increase_area=increase,
+                                        aspect_preserving=aspect_preserving)
+        chunks_data = [(start, i, out, final_bbox)]
+    else:
+        initial_bbox = None
+        start = 0
+        tube_bbox = None
+        frame_list = []
+        chunks_data = []
+        for i, frame in enumerate(reader):
+            mult = frame.shape[0] / REF_FRAME_SIZE
+            rs_frame = resize(frame, (REF_FRAME_SIZE, int(frame.shape[1] / mult)), preserve_range=True)
+         
+            bboxes = extract_bbox(rs_frame)
+            if len(bboxes) == 0:continue
+            bbox = mult * bboxes[0][:4]
             
-            # frame_counter += 1
-            # pic_path = pic_folder + '_'+str(frame_counter)+'.jpg'
-            # cv2.imwrite(pic_path, frame)
+            if initial_bbox is None:
+                initial_bbox = bbox
+                start = i
+                tube_bbox = bbox
             
-        frame_idx += 1
+            isec = bb_intersection_over_union(initial_bbox, bbox)
+            if isec < iou_with_initial or len(frame_list) >= max_frames:
+                out, final_bbox = crop_bbox_from_frames(frame_list, tube_bbox,
+                                                min_frames=min_frames,
+                                                image_shape=image_shape,
+                                                min_size=min_size, 
+                                                increase_area=increase,
+                                                aspect_preserving=aspect_preserving)
+                chunks_data.append((start, i, out, final_bbox))
+                if mode == 'start':
+                    break
+                initial_bbox = bbox
+                start = i
+                tube_bbox = bbox
+                frame_list = []
+            tube_bbox = join(tube_bbox, bbox)
+            frame_list.append(frame)
 
-    cap.release()
-    
-    return frames_list
-    
+    return chunks_data
 
-for person_id in tqdm(os.listdir(path_to_mp4)):
-    for video_id in tqdm(os.listdir(os.path.join(path_to_mp4, person_id))):
-        for video in os.listdir(os.path.join(path_to_mp4, person_id, video_id)):
-            
-                
-            try:
-                video_path = os.path.join(path_to_mp4, person_id, video_id, video)
-                frame_mark = pick_images(video_path, path_to_preprocess+'/' + person_id+'/'+video_id+'/'+video.split('.')[0], K)
-                frame_mark = generate_landmarks(frame_mark, face_aligner)
-                if len(frame_mark) == K:
-                    final_list = [frame_mark[i][0] for i in range(K)]
-                    for i in range(K):
-                        final_list.append(frame_mark[i][1]) #K*2,224,224,3
-                    final_list = np.array(final_list)
-                    final_list = np.transpose(final_list, [1,0,2,3])
-                    final_list = np.reshape(final_list, (224, 224*2*K, 3))
-                    final_list = cv2.cvtColor(final_list, cv2.COLOR_BGR2RGB)
-                    
-                    if not os.path.isdir(path_to_preprocess+"/"+str(num_vid//256)):
-                        os.mkdir(path_to_preprocess+"/"+str(num_vid//256))
-                        
-                    cv2.imwrite(path_to_preprocess+"/"+str(num_vid//256)+"/"+str(num_vid)+".png", final_list)
-                    num_vid += 1
-                    break #take only one video
-
-                    
-            except:
-                print('ERROR: ', video_path)
-            
-        
-print('done')
+def save_to_file(video_path, path_to_pose_img):
+    chunks_data = crop_video(video_path, aspect_preserving=True)
+    os.makedirs(path_to_pose_img)
+    for start, end, frames, bbox in chunks_data:
+        if frames:
+            for idx, img in enumerate(frames):
+                imageio.imsave(os.path.join(
+                    path_to_pose_img,
+                    '{:07d}.png'.format(idx)),
+                    img)

@@ -13,10 +13,6 @@ mp4/
 
 *.tar
 
-*.pth
-
-Pytorch_VGGFACE_IR.py
-
 Wi_weights/
 
 .vscode/settings.json
@@ -24,3 +20,5 @@ Wi_weights/
 .vscode/
 
 vis/
+
+pretrained/

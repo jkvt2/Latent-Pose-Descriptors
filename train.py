@@ -5,10 +5,8 @@ import torch.optim as optim
 import torchvision.models as models
 from torch.utils.data import DataLoader
 from datetime import datetime
-import matplotlib
-#matplotlib.use('agg')
+
 from matplotlib import pyplot as plt
-plt.ion()
 import os
 
 from dataset.dataset_class import PreprocessDataset
@@ -17,10 +15,11 @@ from loss.loss_generator import LossG
 from network.model import Generator, Discriminator
 from tqdm import tqdm
 
-from params.params import K, path_to_chkpt, path_to_backup, batch_size, path_to_images, path_to_segs, frame_shape, path_to_Wi
+from params.params import (
+    K, path_to_chkpt, path_to_backup, batch_size, path_to_images, path_to_segs,
+    frame_shape, path_to_Wi, VGG19_weight_path, VGGFace_body_path, VGGFace_weight_path)
 
 """Create dataset and net"""
-display_training = False
 device = torch.device("cuda:0")
 cpu = torch.device("cpu")
 dataset = PreprocessDataset(K=K, path_to_images=path_to_images, path_to_segs=path_to_segs, path_to_Wi=path_to_Wi)
@@ -45,7 +44,6 @@ Ei.train()
 Ep.train()
 D.train()
 
-
 optimizer = optim.Adam(
         params=list(Ei.parameters()) + list(Ep.parameters()) + list(G.parameters()) + list(D.parameters()),
         lr=2e-4,
@@ -53,9 +51,9 @@ optimizer = optim.Adam(
 
 """Criterion"""
 criterionG = nn.DataParallel(LossG(
-        VGG19_weight_path='vgg19-dcbb9e9d.pth',
-        VGGFace_body_path='Pytorch_VGGFACE_IR.py',
-        VGGFace_weight_path='Pytorch_VGGFACE.pth',
+        VGG19_weight_path=VGG19_weight_path,
+        VGGFace_body_path=VGGFace_body_path,
+        VGGFace_weight_path=VGGFace_weight_path,
         device=device))
 criterionDreal = LossDSCreal()
 criterionDfake = LossDSCfake()
@@ -117,8 +115,6 @@ D.train()
 """Training"""
 batch_start = datetime.now()
 pbar = tqdm(dataLoader, leave=True, initial=0)
-if not display_training:
-    matplotlib.use('agg')
 os.makedirs('vis', exist_ok=True)
 
 for epoch in range(epochCurrent, num_epochs):

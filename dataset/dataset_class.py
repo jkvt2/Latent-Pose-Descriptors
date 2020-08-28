@@ -2,14 +2,10 @@ import torch
 from torch.utils.data import Dataset
 import os
 import numpy as np
-# import face_alignment
-# import bisect
 import albumentations as A
 import albumentations.augmentations.functional as F
 import cv2
 import random
-
-from .video_extraction_conversion import select_preprocess_frames
 
 def scale(img, scale_x, scale_y, interpolation=cv2.INTER_LINEAR):
     height, width = img.shape[:2]
@@ -199,4 +195,8 @@ class DemoImagesDataset(Dataset):
         pose_img = pose_img.permute(2,0,1)/255 #3,256,256
         
         return pose_img
-        
+
+def select_preprocess_frames(img_path_list, seg_path_list):
+    img = [cv2.cvtColor(cv2.imread(fp), cv2.COLOR_BGR2RGB) for fp in img_path_list]
+    seg = [cv2.imread(fp, cv2.IMREAD_UNCHANGED).astype(np.float32)/255 for fp in seg_path_list]
+    return img, seg        
