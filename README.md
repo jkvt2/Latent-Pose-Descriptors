@@ -1,8 +1,18 @@
 # Realistic-Neural-Talking-Head-Models
 
 My implementation of Neural Head Reenactment with Latent Pose Descriptors (Egor Burkov et al.). https://arxiv.org/pdf/2004.12000
+Forked from https://github.com/vincent-thevenin/Realistic-Neural-Talking-Head-Models.
 
-Forked from https://github.com/vincent-thevenin/Realistic-Neural-Talking-Head-Models, the following how-to steps are credited to him:
+Steps:
+
+0. modify params/params.py as required
+  - get VGGFace pretrained model according to prerequisites section below
+  - get VGG19 pretrained model from default torchvision models
+  - for the demo, you can use a video: specify it with path_to_pose_video and the images will be automatically cropped from it
+1. run train.py to get model_weights.tar (the meta-learning model)
+2. run embedder_inference.py (requires model_weights.tar) to get e_hat_images.tar (the embedding of the identity images)
+3. run finetuning_training.py (requires model_weights.tar, e_hat_images.tar) to get finetuned_model.tar (the finetuned model)
+4. run demo.py (requires finetuned_model.tar, e_hat_images.tar) to get gif.gif in vis/
 
 ## Prerequisites
 
@@ -32,7 +42,6 @@ Pytorch code and weights to Pytorch model
 
 
 At this point, you will have a few files in your directory. To save some space you can delete everything and keep **Pytorch_VGGFACE_IR.py** and **Pytorch_VGGFACE.pth**
-
 ### 2.Libraries
 - face-alignment
 - albumentations
