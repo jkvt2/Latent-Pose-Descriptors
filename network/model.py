@@ -23,7 +23,7 @@ class Generator(nn.Module):
     for i in range(1, len(slice_idx)):
         slice_idx[i] = slice_idx[i-1] + slice_idx[i]
     
-    def __init__(self, in_height, finetuning=False):
+    def __init__(self, in_height):
         super(Generator, self).__init__()
         
         self.sigmoid = nn.Sigmoid()
@@ -86,14 +86,6 @@ class Generator(nn.Module):
         #out 3*224*224
         return out
 
-# class W_i_class(nn.Module):
-#     def __init__(self):
-#         super(W_i_class, self).__init__()
-#         self.W_i = nn.Parameter(torch.randn(512,2))
-    
-#     def forward(self):
-#         return self.W_i
-
 class Discriminator(nn.Module):
     def __init__(self, batch_size, num_videos, path_to_Wi, finetuning=False):#, e_finetuning=None):
         super(Discriminator, self).__init__()
@@ -127,20 +119,12 @@ class Discriminator(nn.Module):
         self.b = nn.Parameter(torch.randn(1))
         
         self.finetuning = finetuning
-        # self.e_finetuning = e_finetuning
         self.w_prime = nn.Parameter(torch.randn(batch_size, 768,1))
         
-    # def finetuning_init(self):
-    #     if self.finetuning:
-    #         self.w_prime = nn.Parameter( self.w_0 + self.e_finetuning.mean(dim=0))
-    
     def load_W_i(self, W_i):
         self.W_i.data = self.relu(W_i)
     
-    def forward(self, x, i, e_finetuning=None):
-        if self.finetuning:
-            self.w_prime = nn.Parameter(self.w_0.unsqueeze(-1) + e_finetuning) #1,768,1
-            
+    def forward(self, x, e_finetuning=None):
         out1 = self.resDown1(x)
         
         out2 = self.resDown2(out1)
@@ -166,6 +150,7 @@ class Discriminator(nn.Module):
         batch_end_idx = (torch.cuda.current_device() + 1) * self.W_i.shape[0]//self.gpu_num
         
         if self.finetuning:
+            self.w_prime = nn.Parameter(self.w_0.unsqueeze(-1) + e_finetuning) #1,768,1
             out = torch.bmm(out.transpose(1,2), self.w_prime.expand(out.shape[0],768,1)) + self.b
         else:
             out = torch.bmm(out.transpose(1,2), (self.W_i[batch_start_idx:batch_end_idx]) + self.w_0) + self.b #1x1

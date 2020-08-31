@@ -2,7 +2,7 @@
 import torch
 import os
 
-from dataset.video_extraction_conversion import select_preprocess_frames
+from dataset.dataset_class import select_preprocess_frames
 import torchvision.models as models
 
 import numpy as np

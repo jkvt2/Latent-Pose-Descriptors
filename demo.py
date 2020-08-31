@@ -28,7 +28,7 @@ checkpoint = torch.load(path_to_save, map_location=cpu)
 ei_hat = torch.load(path_to_embedding, map_location=cpu)
 ei_hat = ei_hat['ei'].to(device)
 
-G = Generator(frame_shape, finetuning=True)
+G = Generator(frame_shape)
 G.eval()
 
 Ep = models.mobilenet_v2(num_classes=256).to(device)

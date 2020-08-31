@@ -74,7 +74,7 @@ class LossMatch(nn.Module):
         self.match_weight = match_weight
         self.device = device
         
-    def forward(self, e_vectors, W, i):
+    def forward(self, e_vectors, W):
         return self.l1_loss(e_vectors, W) * self.match_weight
 
 
@@ -106,10 +106,10 @@ class LossG(nn.Module):
         self.lossMatch = LossMatch(device=device)
         self.lossDice = LossDice()
         
-    def forward(self, x, x_hat, s, s_hat, r_hat, D_res_list, D_hat_res_list, e_vectors, W, i):
+    def forward(self, x, x_hat, s, s_hat, r_hat, D_res_list, D_hat_res_list, e_vectors, W):
         loss_cnt = self.lossCnt(x, x_hat)
         loss_adv = self.lossAdv(r_hat, D_res_list, D_hat_res_list)
-        loss_match = self.lossMatch(e_vectors, W, i)
+        loss_match = self.lossMatch(e_vectors, W)
         loss_dice = self.lossDice(s_hat, s)
         #print(loss_cnt.item(), loss_adv.item(), loss_match.item())
         return loss_cnt + loss_adv + loss_match + loss_dice

@@ -46,7 +46,7 @@ D.train()
 
 optimizer = optim.Adam(
         params=list(Ei.parameters()) + list(Ep.parameters()) + list(G.parameters()) + list(D.parameters()),
-        lr=2e-4,
+        lr=5e-5,
         amsgrad=False)
 
 """Criterion"""
@@ -156,8 +156,8 @@ for epoch in range(epochCurrent, num_epochs):
             s_hat = is_hat[:,3,None]
             x = torch.mul(pose_img, pose_seg)
             x_hat = torch.mul(i_hat, s_hat)
-            r_hat, D_hat_res_list = D(x_hat, idxs)
-            r, D_res_list = D(x, idxs)
+            r_hat, D_hat_res_list = D(x_hat)
+            r, D_res_list = D(x)
 
             lossG = criterionG(
                 x=x,
@@ -168,14 +168,13 @@ for epoch in range(epochCurrent, num_epochs):
                 D_res_list=D_res_list,
                 D_hat_res_list=D_hat_res_list,
                 e_vectors=e_hat,
-                W=D.module.W_i,
-                i=idxs)
+                W=D.module.W_i)
             
             lossDfake = criterionDfake(r_hat)
             lossDreal = criterionDreal(r)
             
             lossD = lossDfake + lossDreal
-            loss = lossG.mean() + lossD
+            loss = lossG.mean() + 8 * lossD
             
             loss.backward(retain_graph=False)
             optimizer.step()
