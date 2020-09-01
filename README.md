@@ -3,6 +3,15 @@
 My implementation of Neural Head Reenactment with Latent Pose Descriptors (Egor Burkov et al.). https://arxiv.org/pdf/2004.12000
 Forked from https://github.com/vincent-thevenin/Realistic-Neural-Talking-Head-Models.
 
+
+Source video:
+
+![](examples/source.gif)
+
+Driving and output video:
+
+![](examples/demo.gif)
+
 Steps:
 
 0. modify params/params.py as required
