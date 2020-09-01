@@ -12,16 +12,16 @@ Driving and output video:
 
 ![](examples/demo.gif)
 
-Steps:
+## Steps:
 
-0. modify params/params.py as required
+### 0. modify params/params.py as required
   - get VGGFace pretrained model according to prerequisites section below
   - get VGG19 pretrained model from default torchvision models
   - for the demo, you can use a video: specify it with path_to_pose_video and the images will be automatically cropped from it
-1. run train.py to get model_weights.tar (the meta-learning model)
-2. run embedder_inference.py (requires model_weights.tar) to get e_hat_images.tar (the embedding of the identity images)
-3. run finetuning_training.py (requires model_weights.tar, e_hat_images.tar) to get finetuned_model.tar (the finetuned model)
-4. run demo.py (requires finetuned_model.tar, e_hat_images.tar) to get gif.gif in vis/
+### 1. run train.py to get model_weights.tar (the meta-learning model)
+### 2. run embedder_inference.py (requires model_weights.tar) to get e_hat_images.tar (the embedding of the identity images)
+### 3. run finetuning_training.py (requires model_weights.tar, e_hat_images.tar) to get finetuned_model.tar (the finetuned model)
+### 4. run demo.py (requires finetuned_model.tar, e_hat_images.tar) to get gif.gif in vis/
 
 ## Prerequisites
 
